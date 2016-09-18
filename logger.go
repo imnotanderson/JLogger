@@ -19,12 +19,14 @@ type Logger struct {
 	depth   int
 	path    string
 	pLogger *log.Logger
+	svrName string
 }
 
-func New(path string, depth int) *Logger {
+func New(path string, svrName string, depth int) *Logger {
 	pLog := &Logger{
 		depth:   depth,
 		path:    path,
+		svrName: svrName,
 		pLogger: log.New(nil, "", log.LstdFlags),
 	}
 	pLog.dayTimer(pLog.refreshWriter)
@@ -48,7 +50,7 @@ func (l *Logger) dayTimer(f func()) {
 func (l *Logger) refreshWriter() {
 	fileName := l.getFileName()
 	strPath := path.Join(l.path, fileName)
-	pFile, err := os.OpenFile(strPath, os.O_APPEND|os.O_CREATE, os.ModePerm)
+	pFile, err := os.OpenFile(strPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, os.ModePerm)
 	if err != nil {
 		print(strPath + " createFile err:" + err.Error())
 		return
@@ -58,7 +60,7 @@ func (l *Logger) refreshWriter() {
 
 func (l *Logger) getFileName() string {
 	y, m, d := time.Now().Date()
-	fileName := fmt.Sprintf("%d-%02d-%02d.log", y, m, d)
+	fileName := fmt.Sprintf("%v_%d-%02d-%02d.log", l.svrName, y, m, d)
 	return fileName
 }
 
@@ -78,5 +80,5 @@ func (l *Logger) print(flag string, format string, args ...interface{}) {
 		stack = fmt.Sprintf("[%v:%v]", file, line)
 	}
 	format = stack + flag + format
-	l.pLogger.Printf(format, args...)
+	go func() { l.pLogger.Printf(format, args...) }()
 }
