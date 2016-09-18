@@ -16,20 +16,28 @@ const (
 )
 
 type Logger struct {
-	depth   int
-	path    string
-	pLogger *log.Logger
-	svrName string
+	depth     int
+	path      string
+	pLogger   *log.Logger
+	svrName   string
+	funcQueue chan func()
 }
 
 func New(path string, svrName string, depth int) *Logger {
 	pLog := &Logger{
-		depth:   depth,
-		path:    path,
-		svrName: svrName,
-		pLogger: log.New(nil, "", log.LstdFlags),
+		depth:     depth,
+		path:      path,
+		svrName:   svrName,
+		pLogger:   log.New(nil, "", log.LstdFlags),
+		funcQueue: make(chan func(), 128),
 	}
 	pLog.dayTimer(pLog.refreshWriter)
+	go func() {
+		for {
+			f := <-pLog.funcQueue
+			f()
+		}
+	}()
 	return pLog
 }
 
@@ -80,5 +88,5 @@ func (l *Logger) print(flag string, format string, args ...interface{}) {
 		stack = fmt.Sprintf("[%v:%v]", file, line)
 	}
 	format = stack + flag + format
-	go func() { l.pLogger.Printf(format, args...) }()
+	l.funcQueue <- func() { l.pLogger.Printf(format, args...) }
 }
